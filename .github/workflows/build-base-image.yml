@@ -15,23 +15,17 @@ jobs:
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v4
-          # Install doctl.
+          
+        # Install doctl. 
         - name: Install doctl
           uses: digitalocean/action-doctl@v2
           with:
-            token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+                token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
         - name: Log in to DigitalOcean Container Registry with short-lived credentials
           run: doctl registry login --expiry-seconds 1800
+        
         # Build a Docker image of your application in your registry and tag the image with the $GITHUB_SHA.
         - name: Build container image
           run: docker build -f deploy/php-fpm/base.Dockerfile -t ${{ secrets.REGISTRY_NAME }}/${{ env.BASE_IMAGE_TAG }}:${{ env.BASE_IMAGE_VERSION }} .
         - name: Push image to DigitalOcean Container Registry
           run: docker push ${{ secrets.REGISTRY_NAME }}/${{ env.BASE_IMAGE_TAG }}:${{ env.BASE_IMAGE_VERSION }}
-#         
-#         - uses: nathanheffley/laravel-phpunit-action@master
-#   run-laravel-test:
-#     name: run Laravel test
-#     runs-on: ubuntu-latest
-#     steps:
-#       - uses: actions/checkout@v4
-#       - uses: nathanheffley/laravel-phpunit-action@master
