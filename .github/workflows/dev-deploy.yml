@@ -44,7 +44,7 @@ jobs:
           name: Upload artifact
           uses: actions/upload-artifact@v2
           with:
-            name: ${{ env.IMAGE_TAG }}-${{ env.GITHUB_SHA }}
+            name: ${{ env.IMAGE_TAG }}-${GITHUB_SHA}
             path: /tmp/myimage.tar
 
   run-tests:
@@ -60,7 +60,7 @@ jobs:
           name: Download artifact
           uses: actions/download-artifact@v2
           with:
-            name: ${{ env.IMAGE_TAG }}-${{ env.GITHUB_SHA }}
+            name: ${{ env.IMAGE_TAG }}-${GITHUB_SHA}
             path: /tmp
         -
           name: Load Docker image
@@ -71,6 +71,12 @@ jobs:
         -
           name: Run Test
           run: docker-compose -f deploy/test/docker-compose-test.yaml -p app run run-test
+        # - 
+        #   name: Upload logs to artifact
+        #   uses: actions/upload-artifact@v2
+        #   with:
+        #     name: ${{ env.IMAGE_TAG }}-${GITHUB_SHA}
+        #     path: /tmp/myimage.tar
 
   push-image:
       name: Push DEV docker image to DigitalOcean
@@ -85,7 +91,7 @@ jobs:
           name: Download artifact
           uses: actions/download-artifact@v2
           with:
-            name: ${{ env.IMAGE_TAG }}-${{ env.GITHUB_SHA }}
+            name: ${{ env.IMAGE_TAG }}-${GITHUB_SHA}
             path: /tmp
         -
           name: Load Docker image
@@ -110,7 +116,7 @@ jobs:
         # # Delete cache
         # - uses: geekyeggo/delete-artifact@v5
         #   with:
-        #       name: ${{ env.IMAGE_TAG }}-${{ env.GITHUB_SHA }}
+        #       name: ${{ env.IMAGE_TAG }}-${GITHUB_SHA}
  
   clear-cache:
       name: Clear Cahe
@@ -121,4 +127,4 @@ jobs:
           # Delete cache
           - uses: geekyeggo/delete-artifact@v5
             with:
-                name: ${{ env.IMAGE_TAG }}-${{ env.GITHUB_SHA }}
+                name: ${{ env.IMAGE_TAG }}-${GITHUB_SHA}
