@@ -29,11 +29,6 @@ jobs:
         - name: Log in to DigitalOcean Container Registry with short-lived credentials
           run: doctl registry login --expiry-seconds 1800
 
-
-        # # Build a Docker image
-        # - name: Build container image
-        #   run: docker build -f deploy/php-fpm/production.Dockerfile -t ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }} .
-
         -
           name: Set up Docker Buildx
           uses: docker/setup-buildx-action@v1
@@ -49,7 +44,7 @@ jobs:
           name: Upload artifact
           uses: actions/upload-artifact@v2
           with:
-            name: myimage
+            name: ${{ env.IMAGE_TAG }}-${{ env.IMAGE_VERSION }}
             path: /tmp/myimage.tar
 
 
@@ -67,7 +62,7 @@ jobs:
           name: Download artifact
           uses: actions/download-artifact@v2
           with:
-            name: myimage
+            name: ${{ env.IMAGE_TAG }}-${{ env.IMAGE_VERSION }}
             path: /tmp
         -
           name: Load Docker image
@@ -88,3 +83,7 @@ jobs:
         - name: Push image to DigitalOcean Container Registry
           run: docker push ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }}
   
+        # Delete cache
+        - uses: geekyeggo/delete-artifact@v5
+          with:
+              name: ${{ env.IMAGE_TAG }}-${{ env.IMAGE_VERSION }}
