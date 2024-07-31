@@ -7,7 +7,7 @@ on:
       - '.github/workflows/build-base-image.yml'
 env:
   BASE_IMAGE_TAG: "app-php-base"
-  BASE_IMAGE_VERSION: "8.3.9.1"
+  BASE_IMAGE_VERSION: "8.3.9.0"
 
 jobs:
   build-base-image:
@@ -15,15 +15,6 @@ jobs:
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v4
-
-        # In this step, this action saves a list of existing images,
-        # the cache is created without them in the post run.
-        # It also restores the cache if it exists.
-        - uses: satackey/action-docker-layer-caching@v0.0.11
-            # Ignore the failure of a step and avoid terminating the job.
-          continue-on-error: true
-          with:
-            key: docker-${{ runner.os }}-${{ hashFiles('deploy/php-fpm/base.Dockerfile') }}
           
         # Install doctl. 
         - name: Install doctl
