@@ -1,0 +1,51 @@
+version: "2.2"
+services:
+  redis-test:
+    container_name: redis-test
+    image: library/redis:6-alpine
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
+
+  mysqls-test-db:
+    container_name: mysqls-test-db
+    image: library/mariadb:10.5.8
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: laravel
+      MYSQL_USER: laravel-user
+      MYSQL_PASSWORD: laravel-password
+    # volumes:
+    #   - ${PWD}/docker/codebuild/init-script.sql:/docker-entrypoint-initdb.d/init-script.sql
+    healthcheck:
+      test: "/usr/bin/mysql --user=root --password=root --execute \"SHOW DATABASES;\""
+      interval: 2s
+      timeout: 20s
+      retries: 10
+
+  run-test:
+    container_name: app
+    image: app-image:latest
+    env_file:
+      - test.env
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: "1"
+#          memory: 50M
+#        reservations:
+#          cpus: 0.25
+#          memory: 50M
+    depends_on:
+      snowship-test-db:
+        condition: service_healthy
+      snowship-redis:
+        condition: service_healthy
+    volumes:
+      - ${PWD}/storage/logs/:/var/www/storage/logs
+      - ${PWD}/build/:/var/www/build
+    command: >
+      bash -c "sleep 30
+      && ./artisan test --log-junit=build/tests/results.xml"
