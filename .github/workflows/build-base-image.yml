@@ -36,3 +36,4 @@ jobs:
           run: docker build -f deploy/php-fpm/base.Dockerfile -t ${{ secrets.REGISTRY_NAME }}/${{ env.BASE_IMAGE_TAG }}:${{ env.BASE_IMAGE_VERSION }} .
         - name: Push image to DigitalOcean Container Registry
           run: docker push ${{ secrets.REGISTRY_NAME }}/${{ env.BASE_IMAGE_TAG }}:${{ env.BASE_IMAGE_VERSION }}
+#.
