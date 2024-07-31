@@ -3,7 +3,7 @@
 # Be careful! it could be outstanding! Comapre with circleci-production.Dockerfile!
 ##
 # FROM snowcommerceinc/snowship:control-fpm-base-8.2.4.0 as builder
-FROM registry.digitalocean.com/listrun/app-php-base:8.3.9.1 as builder
+FROM registry.digitalocean.com/listrun/app-php-base:8.3.9.0 as builder
 
 WORKDIR /var/www
 

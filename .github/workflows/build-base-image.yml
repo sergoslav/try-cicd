@@ -5,6 +5,12 @@ on:
     paths:
     #   - 'deploy/php-fpm/base.Dockerfile'
       - '.github/workflows/build-base-image.yml'
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Image version'
+        required: true
 env:
   BASE_IMAGE_TAG: "app-php-base"
   BASE_IMAGE_VERSION: "8.3.9.0"
