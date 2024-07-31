@@ -12,8 +12,8 @@ on:
         description: 'Image version'
         required: true
 env:
-  BASE_IMAGE_TAG: "app-php-base"
-  BASE_IMAGE_VERSION: "8.3.9.0"
+  IMAGE_TAG: "app"
+  IMAGE_VERSION: "base-8.3.9.0"
 
 jobs:
   build-base-image:
@@ -32,7 +32,7 @@ jobs:
         
         # Build a Docker image of your application in your registry and tag the image with the $GITHUB_SHA.
         - name: Build container image
-          run: docker build -f deploy/php-fpm/base.Dockerfile -t ${{ secrets.REGISTRY_NAME }}/${{ env.BASE_IMAGE_TAG }}:${{ env.BASE_IMAGE_VERSION }} .
+          run: docker build -f deploy/php-fpm/base.Dockerfile -t ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }} .
         - name: Push image to DigitalOcean Container Registry
-          run: docker push ${{ secrets.REGISTRY_NAME }}/${{ env.BASE_IMAGE_TAG }}:${{ env.BASE_IMAGE_VERSION }}
+          run: docker push ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }}
 #..
