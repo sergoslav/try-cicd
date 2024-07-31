@@ -44,3 +44,5 @@ RUN curl --silent --show-error https://getcomposer.org/installer | php -- --inst
 
 #Copy configs
 #COPY docker/kubernetes/php-fpm/production-php.ini /usr/local/etc/php/php.ini
+
+#.
