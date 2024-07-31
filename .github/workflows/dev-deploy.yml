@@ -44,7 +44,7 @@ jobs:
           name: Upload artifact
           uses: actions/upload-artifact@v2
           with:
-            name: ${{ env.IMAGE_TAG }}-${GITHUB_SHA}
+            name: app-image
             path: /tmp/myimage.tar
 
   run-tests:
@@ -60,7 +60,7 @@ jobs:
           name: Download artifact
           uses: actions/download-artifact@v2
           with:
-            name: ${{ env.IMAGE_TAG }}-${GITHUB_SHA}
+            name: app-image
             path: /tmp
         -
           name: Load Docker image
@@ -75,7 +75,7 @@ jobs:
         #   name: Upload logs to artifact
         #   uses: actions/upload-artifact@v2
         #   with:
-        #     name: ${{ env.IMAGE_TAG }}-${GITHUB_SHA}
+        #     name: logs
         #     path: /tmp/myimage.tar
 
   push-image:
@@ -91,7 +91,7 @@ jobs:
           name: Download artifact
           uses: actions/download-artifact@v2
           with:
-            name: ${{ env.IMAGE_TAG }}-${GITHUB_SHA}
+            name: app-image
             path: /tmp
         -
           name: Load Docker image
@@ -113,10 +113,10 @@ jobs:
         - name: Push image to DigitalOcean Container Registry
           run: docker push ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }}
   
-        # Delete cache
-        - uses: geekyeggo/delete-artifact@v5
-          with:
-              name: ${{ env.IMAGE_TAG }}-${GITHUB_SHA}
+        # # Delete cache
+        # - uses: geekyeggo/delete-artifact@v5
+        #   with:
+        #       name: app-image
  
   clear-cache:
       name: Clear Cahe
@@ -127,4 +127,4 @@ jobs:
           # Delete cache
           - uses: geekyeggo/delete-artifact@v5
             with:
-                name: ${{ env.IMAGE_TAG }}-${GITHUB_SHA}
+                name: app-image

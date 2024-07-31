@@ -39,9 +39,9 @@ services:
 #          cpus: 0.25
 #          memory: 50M
     depends_on:
-      snowship-test-db:
+      mysqls-test-db:
         condition: service_healthy
-      snowship-redis:
+      redis-test:
         condition: service_healthy
     volumes:
       - ${PWD}/storage/logs/:/var/www/storage/logs
