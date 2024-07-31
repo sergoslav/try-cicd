@@ -1,7 +1,17 @@
 name: learn-github-actions
 run-name: ${{ github.actor }} is learning GitHub Actions
 on: [push]
+env:
+  BASE_IMAGE_VERSION: "8.3.9.0"
+
 jobs:
+  
+  build-base-image:
+      name: Build base docker image
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        - uses: nathanheffley/laravel-phpunit-action@master
   run-laravel-test:
     name: run Laravel test
     runs-on: ubuntu-latest
