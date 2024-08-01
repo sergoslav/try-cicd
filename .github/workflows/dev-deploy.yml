@@ -119,11 +119,16 @@ jobs:
         #       name: app-image
  
   clear-cache:
-      name: Clear Cahe
+      name: Remove extra artifacts
       if: always()
       needs: [build-image, run-tests,push-image]
       runs-on: ubuntu-latest
       steps:
+          - name: List artifacts
+            id: list
+            uses: yakubique/list-artifacts@v1.1
+            with:
+              name: "*"
           # Delete cache
           - uses: geekyeggo/delete-artifact@v5
             with:
