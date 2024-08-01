@@ -1,0 +1,475 @@
+#!/usr/bin/env bash
+
+UNAMEOUT="$(uname -s)"
+
+# Verify operating system is supported...
+case "${UNAMEOUT}" in
+    Linux*)             MACHINE=linux;;
+    Darwin*)            MACHINE=mac;;
+    *)                  MACHINE="UNKNOWN"
+esac
+
+if [ "$MACHINE" == "UNKNOWN" ]; then
+    echo "Unsupported operating system [$(uname -s)]. OSail supports macOS, Linux, and Windows (WSL2)." >&2
+
+    exit 1
+fi
+
+# Determine if stdout is a terminal...
+if test -t 1; then
+    # Determine if colors are supported...
+    ncolors=$(tput colors)
+
+    if test -n "$ncolors" && test "$ncolors" -ge 8; then
+        BOLD="$(tput bold)"
+        YELLOW="$(tput setaf 3)"
+        GREEN="$(tput setaf 2)"
+        NC="$(tput sgr0)"
+    fi
+fi
+
+
+# Function that prints the available commands...
+function display_help {
+    echo "Docker Helper"
+    echo
+    echo "${YELLOW}Usage:${NC}" >&2
+    echo "  osail COMMAND [options] [arguments]"
+    echo
+    echo "Unknown commands are passed to the docker-compose binary."
+    echo
+    echo "${YELLOW}docker-compose Commands:${NC}"
+    echo "  ${GREEN}osail up${NC}        Start the application"
+    echo "  ${GREEN}osail up -d${NC}     Start the application in the background"
+    echo "  ${GREEN}osail stop${NC}      Stop the application"
+    echo "  ${GREEN}osail restart${NC}   Restart the application"
+    echo "  ${GREEN}osail ps${NC}        Display the status of all containers"
+    echo
+    echo "${YELLOW}Artisan Commands:${NC}"
+    echo "  ${GREEN}osail artisan ...${NC}          Run an Artisan command"
+    echo "  ${GREEN}osail artisan queue:work${NC}"
+    echo
+    echo "${YELLOW}PHP Commands:${NC}"
+    echo "  ${GREEN}osail php ...${NC}   Run a snippet of PHP code"
+    echo "  ${GREEN}osail php -v${NC}"
+    echo
+    echo "${YELLOW}Composer Commands:${NC}"
+    echo "  ${GREEN}osail composer ...${NC}                       Run a Composer command"
+    echo "  ${GREEN}osail composer require laravel/sanctum${NC}"
+    echo
+#    echo "${YELLOW}Node Commands:${NC}"
+#    echo "  ${GREEN}osail node ...${NC}         Run a Node command"
+#    echo "  ${GREEN}osail node --version${NC}"
+#    echo
+#    echo "${YELLOW}NPM Commands:${NC}"
+#    echo "  ${GREEN}osail npm ...${NC}        Run a npm command"
+#    echo "  ${GREEN}osail npx${NC}            Run a npx command"
+#    echo "  ${GREEN}osail npm run prod${NC}"
+#    echo
+#    echo "${YELLOW}Yarn Commands:${NC}"
+#    echo "  ${GREEN}osail yarn ...${NC}        Run a Yarn command"
+#    echo "  ${GREEN}osail yarn run prod${NC}"
+    echo
+    echo "${YELLOW}Database Commands:${NC}"
+    echo "  ${GREEN}osail mysql${NC}     Start a MySQL CLI session within the 'mysql' container"
+#    echo "  ${GREEN}osail mariadb${NC}   Start a MySQL CLI session within the 'mariadb' container"
+#    echo "  ${GREEN}osail psql${NC}      Start a PostgreSQL CLI session within the 'pgsql' container"
+    echo "  ${GREEN}osail redis${NC}     Start a Redis CLI session within the 'redis' container"
+    echo
+#    echo "${YELLOW}Debugging:${NC}"
+#    echo "  ${GREEN}osail debug ...${NC}          Run an Artisan command in debug mode"
+#    echo "  ${GREEN}osail debug queue:work${NC}"
+#    echo
+#    echo "${YELLOW}Running Tests:${NC}"
+#    echo "  ${GREEN}osail test${NC}          Run the PHPUnit tests via the Artisan test command"
+#    echo "  ${GREEN}osail phpunit ...${NC}   Run PHPUnit"
+#    echo "  ${GREEN}osail dusk${NC}          Run the Dusk tests (Requires the laravel/dusk package)"
+#    echo "  ${GREEN}osail dusk:fails${NC}    Re-run previously failed Dusk tests (Requires the laravel/dusk package)"
+    echo
+    echo "${YELLOW}Container CLI:${NC}"
+    echo "  ${GREEN}osail shell${NC}        Start a shell session within the application container"
+    echo "  ${GREEN}osail bash${NC}         Alias for 'osail shell'"
+    echo "  ${GREEN}osail tinker${NC}       Start a new Laravel Tinker session"
+    echo
+#    echo "${YELLOW}Sharing:${NC}"
+#    echo "  ${GREEN}osail share${NC}   Share the application publicly via a temporary URL"
+#    echo
+#    echo "${YELLOW}Binaries:${NC}"
+#    echo "  ${GREEN}osail bin ...${NC}   Run Composer binary scripts from the vendor/bin directory"
+#    echo
+#    echo "${YELLOW}Customization:${NC}"
+#    echo "  ${GREEN}osail artisan osail:publish${NC}   Publish the osail configuration files"
+#    echo "  ${GREEN}osail build --no-cache${NC}       Rebuild all of the osail containers"
+
+    exit 1
+}
+
+
+# Proxy the "help" command...
+if [ $# -gt 0 ]; then
+    if [ "$1" == "help" ] || [ "$1" == "-h" ] || [ "$1" == "-help" ] || [ "$1" == "--help" ]; then
+        display_help
+    fi
+else
+    display_help
+fi
+
+# Source the ".env" file so Laravel's environment variables are available...
+if [ -f ./deploy/local/.env ]; then
+    source ./deploy/local/.env
+fi
+if [ -f ./deploy/local/local.env ]; then
+    source ./deploy/local/local.env
+fi
+if [ -f ./deploy/local/osail.env ]; then
+    source ./deploy/local/osail.env
+fi
+
+# Define environment variables...
+#export APP_PORT=${APP_PORT:-80}
+#export APP_SERVICE=${APP_SERVICE:-"laravel.test"}
+#export APP_SERVICE=$APP_NAME
+export PROJECT_NAME=$(echo $APP_NAME | tr '[:upper:]' '[:lower:]')
+export APP_SERVICE="${PROJECT_NAME}-app"
+export NGINX_CONTAINER="${PROJECT_NAME}-nginx"
+export NGROK_CONTAINER="${PROJECT_NAME}-ngrok"
+#export DB_PORT=${DB_PORT:-3306}
+export WWWUSER=${WWWUSER:-$UID}
+export WWWGROUP=${WWWGROUP:-$(id -g)}
+
+export SSH_KEY_PATH=${SSH_KEY_PATH}
+export NGROK_AUTH_KEY=${NGROK_AUTH_KEY}
+
+
+# Function that outputs osail is not running...
+function osail_is_not_running {
+    echo "${BOLD}Docker is not running.${NC}" >&2
+#    echo "" >&2
+#    echo "${BOLD}You may osail using the following commands:${NC} './vendor/bin/osail up' or './vendor/bin/osail up -d'" >&2
+
+    exit 1
+}
+
+# Define Docker Compose command prefix...
+docker compose &> /dev/null
+if [ $? == 0 ]; then
+    DOCKER_COMPOSE=(docker compose -f deploy/local/docker-compose.yaml -p $PROJECT_NAME)
+else
+    DOCKER_COMPOSE=(docker-compose -f deploy/local/docker-compose.yaml -p $PROJECT_NAME)
+fi
+
+EXEC="yes"
+
+if [ -z "$osail_SKIP_CHECKS" ]; then
+    # Ensure that Docker is running...
+    if ! docker info > /dev/null 2>&1; then
+        echo "${BOLD}Docker is not running.${NC}" >&2
+
+        exit 1
+    fi
+
+    # Determine if osail is currently up...
+    if "${DOCKER_COMPOSE[@]}" ps "$APP_SERVICE" 2>&1 | grep 'Exit\|exited'; then
+        echo "${BOLD}Shutting down old osail processes...${NC}" >&2
+
+        "${DOCKER_COMPOSE[@]}" down > /dev/null 2>&1
+
+        EXEC="no"
+    elif [ -z "$("${DOCKER_COMPOSE[@]}" ps -q)" ]; then
+        EXEC="no"
+    fi
+fi
+
+ARGS=()
+
+# Proxy PHP commands to the "php" binary on the application container...
+if [ "$1" == "php" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=("$APP_SERVICE" "php" "$@")
+    else
+        osail_is_not_running
+    fi
+
+# Proxy vendor binary commands on the application container...
+elif [ "$1" == "bin" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=("$APP_SERVICE" ./vendor/bin/"$@")
+    else
+        osail_is_not_running
+    fi
+
+# Proxy docker-compose commands to the docker-compose binary on the application container...
+elif [ "$1" == "docker-compose" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=("$APP_SERVICE" "${DOCKER_COMPOSE[@]}")
+    else
+        osail_is_not_running
+    fi
+
+# Proxy Composer commands to the "composer" binary on the application container...
+elif [ "$1" == "composer" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=("$APP_SERVICE" "composer" "$@")
+    else
+        osail_is_not_running
+    fi
+
+# Proxy Artisan commands to the "artisan" binary on the application container...
+elif [ "$1" == "artisan" ] || [ "$1" == "art" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=("$APP_SERVICE" php artisan "$@")
+    else
+        osail_is_not_running
+    fi
+
+# Proxy the "debug" command to the "php artisan" binary on the application container with xdebug enabled...
+elif [ "$1" == "debug" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it -e XDEBUG_SESSION=1)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=("$APP_SERVICE" php artisan "$@")
+    else
+        osail_is_not_running
+    fi
+
+# Proxy the "test" command to the "php artisan test" Artisan command...
+elif [ "$1" == "test" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=("$APP_SERVICE" php artisan test "$@")
+    else
+        osail_is_not_running
+    fi
+
+# Proxy the "phpunit" command to "php vendor/bin/phpunit"...
+elif [ "$1" == "phpunit" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=("$APP_SERVICE" php vendor/bin/phpunit "$@")
+    else
+        osail_is_not_running
+    fi
+
+# Proxy the "dusk" command to the "php artisan dusk" Artisan command...
+elif [ "$1" == "dusk" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=(-e "APP_URL=http://${APP_SERVICE}")
+        ARGS+=(-e "DUSK_DRIVER_URL=http://selenium:4444/wd/hub")
+        ARGS+=("$APP_SERVICE" php artisan dusk "$@")
+    else
+        osail_is_not_running
+    fi
+
+# Proxy the "dusk:fails" command to the "php artisan dusk:fails" Artisan command...
+elif [ "$1" == "dusk:fails" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=(-e "APP_URL=http://${APP_SERVICE}")
+        ARGS+=(-e "DUSK_DRIVER_URL=http://selenium:4444/wd/hub")
+        ARGS+=("$APP_SERVICE" php artisan dusk:fails "$@")
+    else
+        osail_is_not_running
+    fi
+
+# Initiate a Laravel Tinker session within the application container...
+elif [ "$1" == "tinker" ] ; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=("$APP_SERVICE" php artisan tinker)
+    else
+        osail_is_not_running
+    fi
+
+# Proxy Node commands to the "node" binary on the application container...
+elif [ "$1" == "node" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=("$APP_SERVICE" node "$@")
+    else
+        osail_is_not_running
+    fi
+
+# Proxy NPM commands to the "npm" binary on the application container...
+elif [ "$1" == "npm" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=("$APP_SERVICE" npm "$@")
+    else
+        osail_is_not_running
+    fi
+
+# Proxy NPX commands to the "npx" binary on the application container...
+elif [ "$1" == "npx" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=("$APP_SERVICE" npx "$@")
+    else
+        osail_is_not_running
+    fi
+
+# Proxy YARN commands to the "yarn" binary on the application container...
+elif [ "$1" == "yarn" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=("$APP_SERVICE" yarn "$@")
+    else
+        osail_is_not_running
+    fi
+
+# Initiate a MySQL CLI terminal session within the "mysql" container...
+elif [ "$1" == "mysql" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=(${PROJECT_NAME}-mysql bash -c)
+        ARGS+=("MYSQL_PWD=\${MYSQL_PASSWORD} mysql -u \${MYSQL_USER} \${MYSQL_DATABASE}")
+    else
+        osail_is_not_running
+    fi
+
+# Initiate a MySQL CLI terminal session within the "mariadb" container...
+elif [ "$1" == "mariadb" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=(${PROJECT_NAME}-mariadb bash -c)
+        ARGS+=("MYSQL_PWD=\${MYSQL_PASSWORD} mysql -u \${MYSQL_USER} \${MYSQL_DATABASE}")
+    else
+        osail_is_not_running
+    fi
+
+# Initiate a PostgreSQL CLI terminal session within the "pgsql" container...
+elif [ "$1" == "psql" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=(${PROJECT_NAME}-pgsql bash -c)
+        ARGS+=("PGPASSWORD=\${PGPASSWORD} psql -U \${POSTGRES_USER} \${POSTGRES_DB}")
+    else
+        osail_is_not_running
+    fi
+
+# Initiate a Bash shell within the application container...
+elif [ "$1" == "shell" ] || [ "$1" == "bash" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec -it)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=("$APP_SERVICE" bash "$@")
+    else
+        osail_is_not_running
+    fi
+
+
+# Initiate a Redis CLI terminal session within the "redis" container...
+elif [ "$1" == "redis" ] ; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+        ARGS+=(exec)
+        [ ! -t 0 ] && ARGS+=(-T)
+        ARGS+=(${PROJECT_NAME}-redis redis-cli)
+    else
+        osail_is_not_running
+    fi
+
+# Share the site...
+elif [ "$1" == "share" ]; then
+    shift 1
+
+    if [ "$EXEC" == "yes" ]; then
+#        docker run --init --rm -p "$osail_SHARE_DASHBOARD":4040 -t beyondcodegmbh/expose-server:latest share http://host.docker.internal:"$APP_PORT" \
+#            --server-host="$osail_SHARE_SERVER_HOST" \
+#            --server-port="$osail_SHARE_SERVER_PORT" \
+#            --auth="$osail_SHARE_TOKEN" \
+#            --subdomain="$osail_SHARE_SUBDOMAIN" \
+#            "$@"
+
+#        docker run --rm -it --network=nginx-local-network --link="$NGINX_CONTAINER" --name "$NGROK_CONTAINER" \
+#            --env NGROK_AUTH="$NGROK_AUTH_KEY" \
+#            --env NGROK_PORT=snowship_nginx:80 \
+#            --env NGROK_DEBUG=true \
+#            --env NGROK_LOOK_DOMAIN=snowship.loc \
+#            --env NGROK_PROTOCOL=TCP \
+#            wernight/ngrok ngrok http snowship_nginx:80
+
+#            wernight/ngrok ngrok http http://snowship.loc
+#            wernight/ngrok ngrok -h
+# --env NGROK_PORT="$NGINX_CONTAINER":80 \
+
+#        docker compose -f deploy/local/ngrok-docker-compose.yaml -p $PROJECT_NAME up
+
+        SHARED_URL=$(curl $(docker port "$NGROK_CONTAINER" 4040)/api/tunnels)
+        echo $SHARED_URL
+        exit
+    else
+        osail_is_not_running
+    fi
+
+# Pass unknown commands to the "docker-compose" binary...
+else
+    ARGS+=("$@")
+fi
+
+echo ${DOCKER_COMPOSE[@]}
+echo ${ARGS[@]}
+
+# Run Docker Compose with the defined arguments...
+"${DOCKER_COMPOSE[@]}" "${ARGS[@]}"

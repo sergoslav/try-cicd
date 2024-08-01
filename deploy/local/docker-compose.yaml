@@ -1,0 +1,184 @@
+version: "3.8"
+services:
+  laravel-redis:
+    image: library/redis:7-alpine
+    init: true
+    container_name: laravel-redis
+    networks:
+      - laravel-network
+
+  laravel-mysql:
+    container_name: laravel-mysql
+    init: true
+    networks:
+      - laravel-network
+#    image: mysql:5.7.12
+    image: library/mariadb:11
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: laravel
+      MYSQL_USER: laravel-user
+      MYSQL_PASSWORD: laravel-password
+    ports:
+      - 7335:3306
+    volumes:
+      - ${PWD}/storage/database/local:/var/lib/mysql
+
+#  laravel-test-mysql:
+#    container_name: laravel-test-db
+#    networks:
+#      - laravel-network
+##    image: mysql:5.7.12
+#    image: library/mariadb:10.9
+#    environment:
+#      MYSQL_ROOT_PASSWORD: root
+#      MYSQL_DATABASE: laravel
+#      MYSQL_USER: laravel-user
+#      MYSQL_PASSWORD: laravel-password
+#    ports:
+#      - 7311:3306
+
+  laravel-app:
+    container_name: laravel-app
+    networks:
+      - laravel-network
+      - laravel-nginx-local-network
+    env_file:
+      - .env
+      - local.env
+    build:
+      dockerfile: ${PWD}/deploy/php-fpm/loc.Dockerfile
+      context: ${PWD}/
+    secrets:
+      - host_ssh_key
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: "1"
+#          memory: 50M
+#        reservations:
+#          cpus: 0.25
+#          memory: 50M
+    depends_on:
+      - laravel-redis
+      - laravel-mysql
+#      - laravel-test-mysql
+    volumes:
+      - ${PWD}/:/var/www
+#      - ${PWD}/deploy/php-fpm/php.ini:/usr/local/etc/php/php.ini
+
+#  laravel-cronjob:
+#    container_name: laravel-cronjob
+#    networks:
+#      - laravel-network
+#    env_file:
+#      - .env
+#      - local.env
+#    build:
+#      dockerfile: ${PWD}/deploy/php-fpm/loc.Dockerfile
+#      context: ${PWD}/
+#    depends_on:
+#      - laravel-redis
+#      - laravel-mysql
+#    volumes:
+#      - ${PWD}/:/var/www
+#      - ${PWD}/deploy/php-fpm/php.ini:/usr/local/etc/php/php.ini
+#    labels:
+#      ofelia.enabled: "true"
+#      ofelia.job-exec.firstcronjob.schedule: "@every 5s"
+#      ofelia.job-exec.firstcronjob.command: "./artisan app:try-cron first"
+#      ofelia.job-exec.secondcronjob.schedule: "@every 10s"
+#      ofelia.job-exec.secondcronjob.command: "./artisan app:try-cron second"
+
+#   laravel-nginx:
+#     image: nginx
+#     container_name: laravel-nginx
+#     init: true
+#     networks:
+#       - laravel-network
+#       - laravel-nginx-local-network
+#     hostname: laravel.loc
+#     build:
+# #      dockerfile: ${PWD}/docker/nginx/loc.Dockerfile
+#       context: ${PWD}/
+#     links:
+#       - laravel-app
+#     volumes:
+# #      - ${PWD}/deploy/nginx/config/loc/vhost.conf:/etc/nginx/conf.d/default.conf:ro
+#       - ${PWD}/deploy/nginx/templates:/etc/nginx/templates
+#       - ${PWD}/:/var/www
+#     depends_on:
+#       - laravel-app
+#     environment:
+#       VIRTUAL_HOST: laravel.loc
+#       NGINX_BACKEND_HOST: laravel-app
+#       NGINX_SERVER_ROOT: /var/www/public
+
+# # # XHProf START # # #
+#  php_xhgui:
+#    networks:
+#      - laravel-network
+#    build:
+#      context: ${PWD}/
+#      dockerfile: ${PWD}/deploy/xhprof/php/xhgui.Dockerfile
+#  mongo:
+#    networks:
+#      - laravel-network
+#    image: mongo:4.4.1
+#  nginx_xhgui:
+#    networks:
+#      - laravel-network
+#      - laravel-nginx-local-network
+#    build:
+#      context: ${PWD}/
+#      dockerfile: ${PWD}/deploy/xhprof/nginx/xhgui.Dockerfile
+#    volumes:
+#      - ${PWD}/deploy/xhprof/nginx/templates:/etc/nginx/templates
+#    environment:
+#      VIRTUAL_HOST: laravel-xhprof.loc
+#      NGINX_BACKEND_HOST: php_xhgui
+#    depends_on:
+#      - php_xhgui
+# # # XHProf END # # #
+#
+#  mailhog:
+#    image: mailhog/mailhog:latest
+#    networks:
+#      - laravel-network
+##    restart: always
+#    ports:
+#      - 1025:1025
+#      - 8025:8025
+
+  # laravel-nginx-proxy:
+  #   container_name: laravel-nginx-proxy
+  #   init: true
+  #   networks:
+  #     - laravel-nginx-local-network
+  #   image: jwilder/nginx-proxy
+  #   depends_on:
+  #     - laravel-nginx
+  #   ports:
+  #     - 80:80
+  #   volumes:
+  #     - /var/run/docker.sock:/tmp/docker.sock:ro
+
+#  ofelia:
+#    image: mcuadros/ofelia:latest
+#    depends_on:
+#      - laravel-cronjob
+#    command: daemon --docker
+#    volumes:
+#      - /var/run/docker.sock:/var/run/docker.sock:ro
+##    labels:
+##      ofelia.job-local.my-test-job.schedule: "@every 5s"
+##      ofelia.job-local.my-test-job.command: "date"
+
+networks:
+  laravel-network:
+  laravel-nginx-local-network:
+    name: laravel-nginx-local-network
+    driver: bridge
+secrets:
+  host_ssh_key:
+    file: $SSH_KEY_PATH
