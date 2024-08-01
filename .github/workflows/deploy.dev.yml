@@ -11,8 +11,8 @@ on:
         description: 'Image version'
         required: true
 env:
-  IMAGE_TAG: "app"
-  IMAGE_VERSION: "dev"
+  IMAGE_NAME: "app"
+  IMAGE_TAG_PREFIX: "dev"
 
 jobs:
   build_image:
@@ -31,12 +31,12 @@ jobs:
 
         # Build a Docker image of your application in your registry and tag the image with the $GITHUB_SHA.
         - name: Build container image
-          run: docker build -f deploy/php-fpm/production.Dockerfile -t ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }}-${GITHUB_RUN_NUMBER} -t ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:latest .
+          run: docker build -f deploy/php-fpm/production.Dockerfile -t ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_PREFIX }}-${GITHUB_RUN_NUMBER} -t ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_PREFIX }}-latest .
         # - name: Remove all old images
         #   run: if [ ! -z "$(doctl registry repository list | grep "$(echo $IMAGE_NAME)")" ]; then doctl registry repository delete-manifest $(echo $IMAGE_NAME) $(doctl registry repository list-tags $(echo $IMAGE_NAME) | grep -o "sha.*") --force; else echo "No repository"; fi
 
         - name: Push image to DigitalOcean Container Registry
-          run: docker push ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }} --all-tags
+          run: docker push ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_NAME }} --all-tags
 
   run_tests:
       name: Tests
@@ -54,10 +54,10 @@ jobs:
           run: doctl registry login --expiry-seconds 1800
 
         - name: Pull docker image
-          run: docker pull ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }}-${GITHUB_RUN_NUMBER}
+          run: docker pull ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_PREFIX }}-${GITHUB_RUN_NUMBER}
         
-        - run: docker tag ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }}-${GITHUB_RUN_NUMBER} app-image:latest
-        - run: docker tag ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }}-${GITHUB_RUN_NUMBER} app-image:latest
+        - run: docker tag ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_PREFIX }}-${GITHUB_RUN_NUMBER} app-image:latest
+        - run: docker tag ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_PREFIX }}-${GITHUB_RUN_NUMBER} app-image:latest
         
         # Run Tests
         -

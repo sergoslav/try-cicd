@@ -2,7 +2,7 @@ version: "2.2"
 services:
   redis-test:
     container_name: redis-test
-    image: library/redis:6-alpine
+    image: library/redis:7-alpine
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
       interval: 1s
@@ -11,7 +11,7 @@ services:
 
   mysqls-test-db:
     container_name: mysqls-test-db
-    image: library/mariadb:10.5.8
+    image: library/mariadb:11
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: laravel
