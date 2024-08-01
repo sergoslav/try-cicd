@@ -20,6 +20,9 @@ jobs:
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v4
+          with:
+            ref: ${{ github.head_ref }}   # checkout the correct branch name
+            fetch-depth: 0  
 
         - name: Git Version
           id: version
@@ -64,7 +67,6 @@ jobs:
         - name: Pull docker image
           run: docker pull ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_PREFIX }}-${GITHUB_RUN_NUMBER}
         
-        - run: docker tag ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_PREFIX }}-${GITHUB_RUN_NUMBER} app-image:latest
         - run: docker tag ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG_PREFIX }}-${GITHUB_RUN_NUMBER} app-image:latest
         
         # Run Tests
