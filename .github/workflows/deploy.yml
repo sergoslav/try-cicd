@@ -16,7 +16,7 @@ env:
 
 jobs:
   build-image:
-      name: Build docker image and push to storage
+      name: Build
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v4
@@ -31,12 +31,15 @@ jobs:
 
         # Build a Docker image of your application in your registry and tag the image with the $GITHUB_SHA.
         - name: Build container image
-          run: docker build -f deploy/php-fpm/production.Dockerfile -t ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }} .
+          run: docker build -f deploy/php-fpm/production.Dockerfile -t ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }}-${GITHUB_RUN_NUMBER} .
+        # - name: Remove all old images
+        #   run: if [ ! -z "$(doctl registry repository list | grep "$(echo $IMAGE_NAME)")" ]; then doctl registry repository delete-manifest $(echo $IMAGE_NAME) $(doctl registry repository list-tags $(echo $IMAGE_NAME) | grep -o "sha.*") --force; else echo "No repository"; fi
+
         - name: Push image to DigitalOcean Container Registry
-          run: docker push ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }}
+          run: docker push ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }}-${GITHUB_RUN_NUMBER}
 
   run-tests:
-      name: Run Tests
+      name: Tests
       needs: build-image
       runs-on: ubuntu-latest
       steps:
@@ -51,17 +54,38 @@ jobs:
           run: doctl registry login --expiry-seconds 1800
 
         - name: Pull docker image
-          run: docker pull ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }}
+          run: docker pull ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }}-${GITHUB_RUN_NUMBER}
         
-        - run: docker tag ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }} app-image:latest
+        - run: docker tag ${{ secrets.REGISTRY_NAME }}/${{ env.IMAGE_TAG }}:${{ env.IMAGE_VERSION }}-${GITHUB_RUN_NUMBER} app-image:latest
         
         # Run Tests
         -
           name: Run Test
           run: docker-compose -f deploy/test/docker-compose-test.yaml -p app run run-test
-        # - 
-        #   name: Upload logs to artifact
-        #   uses: actions/upload-artifact@v2
-        #   with:
-        #     name: logs
-        #     path: /tmp/myimage.tar
+
+
+  # deploy:
+  #   runs-on: ubuntu-latest
+  #   needs: build_and_push
+    
+  #   steps:
+  #     - name: Deploy to Digital Ocean droplet via SSH action
+  #       uses: appleboy/ssh-action@v0.1.3
+  #       with:
+  #         host: ${{ secrets.HOST }}
+  #         username: ${{ secrets.USERNAME }}
+  #         key: ${{ secrets.SSHKEY }}
+  #         passphrase: ${{ secrets.PASSPHRASE }}
+  #         envs: IMAGE_NAME,REGISTRY,{{ secrets.DIGITALOCEAN_ACCESS_TOKEN }},GITHUB_SHA
+  #         script: |
+  #           # Login to registry
+  #           docker login -u ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} -p ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} registry.digitalocean.com
+  #           # Stop running container
+  #           docker stop $(echo $IMAGE_NAME)
+  #           # Remove old container
+  #           docker rm $(echo $IMAGE_NAME)
+  #           # Run a new container from a new image
+  #           docker run -d \
+  #           --restart always \
+  #           --name $(echo $IMAGE_NAME) \
+  #           $(echo $REGISTRY)/$(echo $IMAGE_NAME):$(echo $GITHUB_SHA | head -c7)
