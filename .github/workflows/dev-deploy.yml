@@ -124,11 +124,19 @@ jobs:
       needs: [build-image, run-tests,push-image]
       runs-on: ubuntu-latest
       steps:
-          - name: List artifacts
-            id: list
-            uses: yakubique/list-artifacts@v1.1
+          # Deleting doesn't works by some reason, so we will rewrite artifact by empty file
+          - run: touch /tmp/empty.txt
+          -
+            name: Upload artifact
+            uses: actions/upload-artifact@v2
             with:
-              name: "*"
+              name: app-image
+              path: /tmp/empty.txt
+          # - name: List artifacts
+          #   id: list
+          #   uses: yakubique/list-artifacts@v1.1
+          #   with:
+          #     name: "*"
           # Delete cache
           - uses: geekyeggo/delete-artifact@v5
             with:
