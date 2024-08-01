@@ -47,5 +47,5 @@ services:
       - ${PWD}/storage/logs/:/var/www/storage/logs
       - ${PWD}/build/:/var/www/build
     command: >
-      bash -c "sleep 10
+      bash -c "sleep 30
       && ./artisan test --log-junit=build/tests/results.xml"
