@@ -9,25 +9,27 @@ services:
       timeout: 3s
       retries: 5
 
-  mysqls-test-db:
-    container_name: mysqls-test-db
+  mysqls-test:
+    container_name: mysqls-test
     image: library/mariadb:11
     environment:
       MYSQL_ROOT_PASSWORD: root
+      # MARIADB_ROOT_PASSWORD: root
       MYSQL_DATABASE: laravel
       MYSQL_USER: laravel-user
       MYSQL_PASSWORD: laravel-password
     # volumes:
     #   - ${PWD}/docker/codebuild/init-script.sql:/docker-entrypoint-initdb.d/init-script.sql
     healthcheck:
-      test: "/usr/bin/mysql --user=root --password=root --execute \"SHOW DATABASES;\""
+      test: "/usr/bin/mariadb --user=root --password=root --execute \"SHOW DATABASES;\""
       interval: 2s
-      timeout: 20s
+      timeout: 10s
       retries: 10
 
   run-test:
     container_name: app
-    image: app-image:latest
+    # image: app-image:latest
+    image: registry.digitalocean.com/listrun/app:dev-latest
     env_file:
       - test.env
 #    deploy:
@@ -39,13 +41,14 @@ services:
 #          cpus: 0.25
 #          memory: 50M
     depends_on:
-      mysqls-test-db:
+      mysqls-test:
         condition: service_healthy
       redis-test:
         condition: service_healthy
     volumes:
       - ${PWD}/storage/logs/:/var/www/storage/logs
       - ${PWD}/build/:/var/www/build
+      # - ${PWD}/test.env:/var/www/.env
     command: >
-      bash -c "sleep 30
+      bash -c "sleep 1
       && ./artisan test --log-junit=build/tests/results.xml"
